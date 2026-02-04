@@ -480,6 +480,21 @@ async function batchIccidToMsisdnLookup(partialIccidList, fullIccidList) {
   console.log("📊 Results ready. Single MSISDN column with empty lines for not found.");
   console.log("MSISDN Column:");
   console.log(msisdnColumn);
+
+  // 👇 ADD THIS BLOCK 👇
+  // Output detailed results as a table in the console
+  console.table(results.map((r, i) => ({
+    "#": i + 1,
+    "Partial ICCID": r.partial,
+    "Full ICCID": r.fullIccid,
+    "MSISDN": r.msisdn || "(not found)",
+    "Status": r.msisdn ? "✅ Found" : "❌ Not Found"
+  })));
+  // 👆 END OF ADDITION 👆
+
+  resultsOverlay.appendChild(resultsModal);
+  document.body.appendChild(resultsOverlay);
+  
 }
 
 // =========================================
