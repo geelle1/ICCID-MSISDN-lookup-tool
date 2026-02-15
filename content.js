@@ -9,6 +9,22 @@
 // 5. Returns single-column MSISDN results for Excel
 // =========================================
 
+  // ===============================
+// EXTRACT LAST TOP-UP AMOUNT
+// ===============================
+function extractLastTopUpAmount() {
+  const labels = document.querySelectorAll('p');
+
+  for (const p of labels) {
+    if (p.textContent.trim().toLowerCase() === 'last top-up amount') {
+      const h6 = p.nextElementSibling;
+      return h6 ? h6.textContent.trim() : '';
+    }
+  }
+  return '';
+}
+
+
 function showIccidInputDialog() {
   const overlay = document.createElement('div');
   overlay.style.cssText = `
@@ -183,6 +199,7 @@ async function batchIccidToMsisdnLookup(partialIccidList, fullIccidList) {
     let msisdn = "";
     let notFoundDetected = false;
     let success = false;
+    let lastTopUpAmount = "";
     const timeout = 8000; // Increased timeout to 8 seconds
     const start = performance.now();
     let pageLoadChecks = 0;
@@ -219,13 +236,16 @@ async function batchIccidToMsisdnLookup(partialIccidList, fullIccidList) {
       const summaryHeaders = document.querySelectorAll('h6.red');
       for (const header of summaryHeaders) {
         const text = header.textContent.trim();
-        if (text.startsWith('Summary for:')) {
-          // Extract just the number (remove "Summary for: ")
-          msisdn = text.replace('Summary for:', '').trim();
-          success = true;
-          console.log(`✅ Found MSISDN in summary header: ${msisdn}`);
-          break;
-        }
+if (text.startsWith('Summary for:')) {
+  msisdn = text.replace('Summary for:', '').trim();
+  lastTopUpAmount = extractLastTopUpAmount();
+  success = true;
+
+  console.log(`✅ Found MSISDN: ${msisdn}`);
+  console.log(`💰 Last Top-up Amount: ${lastTopUpAmount}`);
+  break;
+}
+
       }
       
       // Also check for MSISDN in other common elements
@@ -258,7 +278,12 @@ async function batchIccidToMsisdnLookup(partialIccidList, fullIccidList) {
       results.push({ partial, fullIccid, msisdn: "" });
     } else if (success) {
       console.log(`✅ Found MSISDN: ${msisdn}`);
-      results.push({ partial, fullIccid, msisdn });
+      results.push({
+        partial,
+        fullIccid,
+        msisdn,
+        lastTopUpAmount
+      });
     } else {
       console.warn(`⚠️ Timeout for ${fullIccid} after ${timeout}ms`);
       results.push({ partial, fullIccid, msisdn: "" });
@@ -486,8 +511,8 @@ async function batchIccidToMsisdnLookup(partialIccidList, fullIccidList) {
   console.table(results.map((r, i) => ({
     "#": i + 1,
     "Partial ICCID": r.partial,
-    "Full ICCID": r.fullIccid,
     "MSISDN": r.msisdn || "(not found)",
+    "Last Top up": r.lastTopUpAmount || "(N/A)",
     "Status": r.msisdn ? "✅ Found" : "❌ Not Found"
   })));
   // 👆 END OF ADDITION 👆
