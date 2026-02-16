@@ -1,11 +1,10 @@
-// content.js - Precise MSISDN Extraction & Responsive UI
+// content.js - Working Logic + Enhanced Results Table
 (() => {
   const waitForResult = (selector, timeout = 8000) => {
     return new Promise((resolve) => {
       const start = Date.now();
       const interval = setInterval(() => {
         const el = document.querySelector(selector);
-        // Look for the element AND ensure it contains a number starting with 7
         if (el && /7\d{8}/.test(el.innerText)) {
           clearInterval(interval);
           resolve(el);
@@ -22,7 +21,7 @@
     overlay.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center;
-      z-index: 2147483647; font-family: -apple-system, system-ui, sans-serif; padding: 10px; box-sizing: border-box;
+      z-index: 2147483647; font-family: -apple-system, sans-serif; padding: 10px; box-sizing: border-box;
     `;
 
     const modal = document.createElement('div');
@@ -33,17 +32,14 @@
     `;
 
     modal.innerHTML = `
-      <h3 style="margin: 0 0 8px 0; font-size: 1.25rem; color: #333;">ICCID Lookup</h3>
-      <p style="margin: 0 0 15px 0; font-size: 0.85rem; color: #666;">Prefix 8925263790000 is auto-added.</p>
-      
-      <textarea id="iccidInput" placeholder="Enter partial ICCIDs...&#10;6651908&#10;6652336" 
-        style="width: 100%; flex: 1; min-height: 150px; padding: 12px; border: 2px solid #eee; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 16px; box-sizing: border-box; outline: none; transition: border 0.2s;"></textarea>
-      
-      <div id="statusUpdate" style="margin-top: 12px; font-size: 0.9rem; color: #17a2b8; font-weight: 600; text-align: center;">Ready to start</div>
-      
+      <h3 style="margin: 0 0 8px 0; font-size: 1.25rem;">ICCID Lookup</h3>
+      <p style="margin: 0 0 15px 0; font-size: 0.85rem; color: #666;">Prefix 8925263790000 added automatically.</p>
+      <textarea id="iccidInput" placeholder="Enter partials..." 
+        style="width: 100%; flex: 1; min-height: 150px; padding: 12px; border: 2px solid #eee; border-radius: 10px; font-family: monospace; font-size: 16px; box-sizing: border-box; outline: none;"></textarea>
+      <div id="statusUpdate" style="margin-top: 12px; font-size: 0.9rem; color: #17a2b8; font-weight: 600; text-align: center;">Ready</div>
       <div style="margin-top: 18px; display: flex; gap: 10px;">
-        <button id="cancelBtn" style="flex: 1; padding: 14px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 10px; cursor: pointer; font-weight: 600; color: #444;">Cancel</button>
-        <button id="startBtn" style="flex: 2; padding: 14px; background: #007bff; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,123,255,0.2);">Start Lookup</button>
+        <button id="cancelBtn" style="flex: 1; padding: 14px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 10px; cursor: pointer;">Cancel</button>
+        <button id="startBtn" style="flex: 2; padding: 14px; background: #007bff; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">Start</button>
       </div>
     `;
 
@@ -59,13 +55,11 @@
     startBtn.onclick = async () => {
       const input = textarea.value.trim();
       if (!input) return;
-
       const partialList = input.split('\n').map(l => l.trim()).filter(l => l);
       const fullList = partialList.map(p => '8925263790000' + p);
-
+      
       textarea.disabled = true;
       startBtn.disabled = true;
-      startBtn.style.opacity = '0.5';
 
       const results = [];
       for (let i = 0; i < fullList.length; i++) {
@@ -80,16 +74,12 @@
   }
 
   async function performLookup(partial, fullIccid) {
-    // 1. Trigger Home Navigation
     const logo = document.querySelector("img.logoImg");
     if (logo) logo.click();
-    
-    // 2. Wait for form to exist
     await new Promise(r => setTimeout(r, 700)); 
     const dropdown = document.querySelector("select#idtype");
     if (!dropdown) return { partial, msisdn: "" };
 
-    // 3. Select ICCID & Input Number
     dropdown.value = [...dropdown.options].find(o => o.text.toUpperCase().includes('ICCID'))?.value || "ICCID";
     dropdown.dispatchEvent(new Event("change", { bubbles: true }));
 
@@ -102,21 +92,12 @@
     const searchBtn = [...document.querySelectorAll("button")].find(b => b.innerText.toUpperCase().includes('SEARCH'));
     if (searchBtn) searchBtn.click();
 
-    // 4. PRECISE EXTRACTION
-    // Specifically looking for the <h6> with class "red"
     const resultHeader = await waitForResult("h6.red", 7000);
-    
     let msisdn = "";
     if (resultHeader) {
-      const text = resultHeader.innerText;
-      // REGEX: Look for a number starting with 7 followed by 8 more digits
-      const match = text.match(/7\d{8}/);
-      if (match) {
-        msisdn = match[0];
-        console.log(`✅ Extracted: ${msisdn}`);
-      }
+      const match = resultHeader.innerText.match(/7\d{8}/);
+      if (match) msisdn = match[0];
     }
-
     return { partial, msisdn };
   }
 
@@ -132,18 +113,39 @@
 
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: white; width: 100%; max-width: 400px; border-radius: 16px;
-      padding: 24px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box;
+      background: white; width: 100%; max-width: 450px; border-radius: 16px;
+      padding: 20px; max-height: 90vh; display: flex; flex-direction: column; box-sizing: border-box;
     `;
 
+    // Create Table Rows
+    const tableRows = results.map((r, i) => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 8px; font-size: 14px; color: #666;">${i + 1}</td>
+        <td style="padding: 8px; font-size: 14px; font-family: monospace;">${r.partial}</td>
+        <td style="padding: 8px; font-size: 14px; font-weight: bold; color: ${r.msisdn ? '#28a745' : '#dc3545'};">
+          ${r.msisdn || 'Not Found'}
+        </td>
+      </tr>
+    `).join('');
+
     modal.innerHTML = `
-      <h3 style="margin: 0 0 5px 0; font-size: 1.2rem;">Lookup Complete</h3>
-      <p style="margin: 0 0 15px 0; font-size: 0.85rem; color: #666;">Copy the column below for Excel:</p>
+      <h3 style="margin: 0 0 10px 0;">Results Found</h3>
       
-      <textarea readonly style="width: 100%; flex: 1; font-family: 'Courier New', monospace; padding: 12px; border: 2px solid #e8f0fe; border-radius: 10px; font-size: 16px; line-height: 1.6; box-sizing: border-box; background: #fbfcfe;">${msisdnColumn}</textarea>
-      
-      <button id="copyBtn" style="width:100%; margin-top:15px; padding: 16px; background: #28a745; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1rem; box-shadow: 0 4px 10px rgba(40,167,69,0.3);">📋 Copy MSISDN Column</button>
-      <button id="closeBtn" style="width:100%; margin-top:10px; padding: 10px; background: transparent; color: #888; border: none; cursor: pointer; font-size: 0.9rem;">Close window</button>
+      <div style="flex: 1; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 8px;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <thead style="background: #f8f9fa; position: sticky; top: 0;">
+            <tr>
+              <th style="padding: 8px; font-size: 12px; color: #888;">#</th>
+              <th style="padding: 8px; font-size: 12px; color: #888;">ICCID</th>
+              <th style="padding: 8px; font-size: 12px; color: #888;">MSISDN</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+
+      <button id="copyBtn" style="width:100%; padding: 14px; background: #28a745; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer;">📋 Copy Excel Column</button>
+      <button id="closeBtn" style="width:100%; margin-top:10px; padding: 8px; background: transparent; color: #888; border: none; cursor: pointer;">Close</button>
     `;
 
     overlay.appendChild(modal);
@@ -151,8 +153,8 @@
 
     modal.querySelector('#copyBtn').onclick = () => {
       navigator.clipboard.writeText(msisdnColumn);
-      modal.querySelector('#copyBtn').textContent = '✅ Copied to Clipboard';
-      modal.querySelector('#copyBtn').style.background = '#1e7e34';
+      modal.querySelector('#copyBtn').textContent = '✅ Copied!';
+      setTimeout(() => { modal.querySelector('#copyBtn').textContent = '📋 Copy Excel Column'; }, 2000);
     };
     modal.querySelector('#closeBtn').onclick = () => document.body.removeChild(overlay);
   }
