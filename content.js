@@ -1,4 +1,4 @@
-// content.js - Final Version with "Not Found" Labels & Progress Bar
+// content.js - ICCID Lookup + Progress + Top-up + Console Table
 (() => {
   const waitForResult = (selector, timeout = 8000) => {
     return new Promise((resolve) => {
@@ -91,6 +91,15 @@
       progressBar.style.width = `100%`;
       percentDiv.textContent = `100%`;
 
+      // LOG TO CONSOLE TABLE
+      console.log("%c📊 BATCH LOOKUP COMPLETE", "color: #17a2b8; font-weight: bold; font-size: 14px;");
+      console.table(results.map((r, idx) => ({
+        "#": idx + 1,
+        "Partial ICCID": r.partial,
+        "MSISDN": r.msisdn || "Not Found",
+        "Last Top-up": r.topup
+      })));
+
       setTimeout(() => {
         document.body.removeChild(overlay);
         showResultsModal(results);
@@ -103,7 +112,7 @@
     if (logo) logo.click();
     await new Promise(r => setTimeout(r, 700)); 
     const dropdown = document.querySelector("select#idtype");
-    if (!dropdown) return { partial, msisdn: "" };
+    if (!dropdown) return { partial, msisdn: "", topup: "N/A" };
 
     dropdown.value = [...dropdown.options].find(o => o.text.toUpperCase().includes('ICCID'))?.value || "ICCID";
     dropdown.dispatchEvent(new Event("change", { bubbles: true }));
@@ -118,12 +127,25 @@
     if (searchBtn) searchBtn.click();
 
     const resultHeader = await waitForResult("h6.red", 7000);
+    
     let msisdn = "";
+    let topup = "Not Found";
+
     if (resultHeader) {
       const match = resultHeader.innerText.match(/7\d{8}/);
       if (match) msisdn = match[0];
+
+      const pTags = document.querySelectorAll('p');
+      for (const p of pTags) {
+        if (p.textContent.includes("Last Top-up Amount")) {
+          const valueEl = p.nextElementSibling || p.parentElement.querySelector('h6, span, b');
+          if (valueEl) topup = valueEl.textContent.trim();
+          break;
+        }
+      }
     }
-    return { partial, msisdn };
+
+    return { partial, msisdn, topup };
   }
 
   function showResultsModal(results) {
@@ -138,37 +160,42 @@
 
     const modal = document.createElement('div');
     modal.style.cssText = `
-      background: white; width: 100%; max-width: 450px; border-radius: 16px;
+      background: white; width: 100%; max-width: 550px; border-radius: 16px;
       padding: 20px; max-height: 90vh; display: flex; flex-direction: column; box-sizing: border-box;
     `;
 
     const tableRows = results.map((r, i) => `
       <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 10px; font-size: 14px; color: #888;">${i + 1}</td>
-        <td style="padding: 10px; font-size: 14px; font-family: monospace;">${r.partial}</td>
-        <td style="padding: 10px; font-size: 14px; font-weight: bold; color: ${r.msisdn ? '#28a745' : '#dc3545'}; text-align: right;">
+        <td style="padding: 10px; font-size: 13px; color: #888;">${i + 1}</td>
+        <td style="padding: 10px; font-size: 13px; font-family: monospace;">${r.partial}</td>
+        <td style="padding: 10px; font-size: 13px; font-weight: bold; color: ${r.msisdn ? '#28a745' : '#dc3545'};">
           ${r.msisdn || 'Not Found'}
+        </td>
+        <td style="padding: 10px; font-size: 13px; color: #555; text-align: right;">
+          ${r.topup}
         </td>
       </tr>
     `).join('');
 
     modal.innerHTML = `
       <h3 style="margin: 0 0 10px 0; font-size: 1.2rem;">Lookup Results</h3>
+      <p style="margin: 0 0 10px 0; font-size: 0.8rem; color: #666;">Check Console (F12) for detailed log table.</p>
       
       <div style="flex: 1; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 10px;">
         <table style="width: 100%; border-collapse: collapse; text-align: left;">
           <thead style="background: #f8f9fa; position: sticky; top: 0; z-index: 1;">
             <tr>
-              <th style="padding: 10px; font-size: 12px; color: #999; border-bottom: 2px solid #eee;">#</th>
-              <th style="padding: 10px; font-size: 12px; color: #999; border-bottom: 2px solid #eee;">PARTIAL</th>
-              <th style="padding: 10px; font-size: 12px; color: #999; border-bottom: 2px solid #eee; text-align: right;">MSISDN</th>
+              <th style="padding: 10px; font-size: 11px; color: #999; border-bottom: 2px solid #eee;">#</th>
+              <th style="padding: 10px; font-size: 11px; color: #999; border-bottom: 2px solid #eee;">ICCID</th>
+              <th style="padding: 10px; font-size: 11px; color: #999; border-bottom: 2px solid #eee;">MSISDN</th>
+              <th style="padding: 10px; font-size: 11px; color: #999; border-bottom: 2px solid #eee; text-align: right;">TOP-UP</th>
             </tr>
           </thead>
           <tbody>${tableRows}</tbody>
         </table>
       </div>
 
-      <button id="copyBtn" style="width:100%; padding: 16px; background: #28a745; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1rem;">📋 Copy for Excel</button>
+      <button id="copyBtn" style="width:100%; padding: 16px; background: #28a745; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1rem;">📋 Copy MSISDN Column</button>
       <button id="closeBtn" style="width:100%; margin-top:10px; padding: 10px; background: transparent; color: #999; border: none; cursor: pointer; font-size: 0.9rem;">Close</button>
     `;
 
@@ -177,8 +204,8 @@
 
     modal.querySelector('#copyBtn').onclick = () => {
       navigator.clipboard.writeText(msisdnColumn);
-      modal.querySelector('#copyBtn').textContent = '✅ Copied!';
-      setTimeout(() => { modal.querySelector('#copyBtn').textContent = '📋 Copy for Excel'; }, 2000);
+      modal.querySelector('#copyBtn').textContent = '✅ MSISDNs Copied!';
+      setTimeout(() => { modal.querySelector('#copyBtn').textContent = '📋 Copy MSISDN Column'; }, 2000);
     };
     modal.querySelector('#closeBtn').onclick = () => document.body.removeChild(overlay);
   }
